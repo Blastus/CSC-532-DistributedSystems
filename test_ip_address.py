@@ -37,10 +37,16 @@ For more information, please refer to <http://unlicense.org/>"""
 import datetime
 import ipaddress
 import socket
+import threading
+import time
 
 # Public Names
 __all__ = (
     'HOSTNAMES',
+    'CLIENT_TO_SERVER',
+    'PORT',
+    'WAIT',
+    'TIMEOUT',
     'main'
 )
 
@@ -59,6 +65,10 @@ HOSTNAMES = dict(
     E='zero-Virtual-Machine-E',
     Z='ZERO-FINALE'
 )
+CLIENT_TO_SERVER = {'Z': 'A', 'A': 'B', 'B': 'C', 'C': 'D', 'D': 'E', 'E': 'Z'}
+PORT = 46656
+WAIT = 10
+TIMEOUT = 1
 
 
 def main():
@@ -73,6 +83,16 @@ def main():
         if other_host != hostname:
             print(other_host, '->',
                   ipaddress.ip_address(socket.gethostbyname(other_host)))
+    # Test being able to create a server and connect to the next computer.
+    server = socket.create_server(('', PORT))
+    threading.Thread(target=server.accept, daemon=True).start()
+    print('Server created and waiting ...')
+    time.sleep(WAIT)
+    # noinspection PyTypeChecker
+    alias = dict(map(reversed, HOSTNAMES.items()))[hostname]
+    next_address = HOSTNAMES[CLIENT_TO_SERVER[alias]], PORT
+    next_server = socket.create_connection(next_address, TIMEOUT)
+    print('Connected to', next_server, '...')
 
 
 if __name__ == '__main__':
