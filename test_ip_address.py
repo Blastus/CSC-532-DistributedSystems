@@ -35,6 +35,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>"""
 
 import datetime
+import ipaddress
 import socket
 
 # Public Names
@@ -65,8 +66,13 @@ def main():
     hostname = socket.gethostname()
     address = socket.gethostbyname(hostname)
     print(f'I am {hostname}, and my IP address is {address}')
-    print('(though no server has been create in this program).')
+    print('(though no server has been created in this program).')
     assert hostname in HOSTNAMES.values(), 'hostname was not found'
+    # Test the ability of getting the IP addresses of other hosts.
+    for other_host in sorted(HOSTNAMES.values()):
+        if other_host != hostname:
+            print(other_host, '->',
+                  ipaddress.ip_address(socket.gethostbyname(other_host)))
 
 
 if __name__ == '__main__':
