@@ -36,6 +36,7 @@ For more information, please refer to <http://unlicense.org/>"""
 
 import datetime
 import ipaddress
+import pickle
 import socket
 import threading
 import time
@@ -48,6 +49,7 @@ __all__ = (
     'USER_WAIT',
     'TIMEOUT',
     'SPINLOCK_WAIT',
+    'VALUE_LIMIT',
     'main',
     'show_other_host_ip_address',
     'test_server_and_client',
@@ -75,6 +77,7 @@ PORT = 46656
 USER_WAIT = 10
 TIMEOUT = 1
 SPINLOCK_WAIT = 0.1
+VALUE_LIMIT = 1000
 
 
 def main():
@@ -87,7 +90,24 @@ def main():
     # show_other_host_ip_address(hostname)
     # test_server_and_client(hostname)
     client, server = create_round_robin_connection()
-    print(f'{client =}\n{server =}')
+    print(f'{client = }\n{server = }')
+    # Create easy-to-use communication channels.
+    client.settimeout(TIMEOUT)
+    read_socket = client.makefile('rb')
+    write_socket = server.makefile('wb')
+    load = pickle.Unpickler(read_socket).load
+    dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
+    # Initialize the message passing with a number.
+    if hostname == HOSTNAMES['Z']:
+        dump(1)
+    while True:
+        value = load()
+        print(f'LOAD {type(value).__name__} value = {value};')
+        value += 1
+        dump(value)
+        print(f'DUMP {type(value).__name__} value = {value};')
+        if value > VALUE_LIMIT:
+            break
 
 
 def show_other_host_ip_address(hostname):
