@@ -93,10 +93,10 @@ def main():
     client, server = create_round_robin_connection()
     print(f'{client = }\n{server = }')
     # Create easy-to-use communication channels.
-    read_socket = client.makefile('r')
-    write_socket = server.makefile('w')
+    read_socket = client.makefile('rb')
+    write_socket = server.makefile('wb')
     load = pickle.Unpickler(read_socket).load
-    dump = pickle.Pickler(write_socket, 0).dump
+    dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
     # Initialize the message passing with a number.
     if hostname == HOSTNAMES['Z']:
         value = 1
