@@ -45,9 +45,14 @@ __all__ = (
     'HOSTNAMES',
     'CLIENT_TO_SERVER',
     'PORT',
-    'WAIT',
+    'USER_WAIT',
     'TIMEOUT',
-    'main'
+    'SPINLOCK_WAIT',
+    'main',
+    'show_other_host_ip_address',
+    'test_server_and_client',
+    'get_next_address',
+    'AcceptClient'
 )
 
 # Module Documentation
@@ -67,8 +72,9 @@ HOSTNAMES = dict(
 )
 CLIENT_TO_SERVER = {'Z': 'A', 'A': 'B', 'B': 'C', 'C': 'D', 'D': 'E', 'E': 'Z'}
 PORT = 46656
-WAIT = 10
+USER_WAIT = 10
 TIMEOUT = 1
+SPINLOCK_WAIT = 0.1
 
 
 def main():
@@ -78,21 +84,85 @@ def main():
     print(f'I am {hostname}, and my IP address is {address}')
     print('(though no server has been created in this program).')
     assert hostname in HOSTNAMES.values(), 'hostname was not found'
-    # Test the ability of getting the IP addresses of other hosts.
+    # show_other_host_ip_address(hostname)
+    # test_server_and_client(hostname)
+    client, server = create_round_robin_connection()
+    print(f'{client =}\n{server =}')
+
+
+def show_other_host_ip_address(hostname):
+    """Tests the ability of getting the IP addresses of other hosts."""
     for other_host in sorted(HOSTNAMES.values()):
         if other_host != hostname:
             print(other_host, '->',
                   ipaddress.ip_address(socket.gethostbyname(other_host)))
-    # Test being able to create a server and connect to the next computer.
+
+
+def test_server_and_client(hostname):
+    """Tries to create a server and a client connecting to the next host."""
     server = socket.create_server(('', PORT))
     threading.Thread(target=server.accept, daemon=True).start()
     print('Server created and waiting ...')
-    time.sleep(WAIT)
+    time.sleep(USER_WAIT)
     # noinspection PyTypeChecker
     alias = dict(map(reversed, HOSTNAMES.items()))[hostname]
     next_address = HOSTNAMES[CLIENT_TO_SERVER[alias]], PORT
     next_server = socket.create_connection(next_address, TIMEOUT)
     print('Connected to', next_server, '...')
+
+
+def create_round_robin_connection():
+    """Gets a connection from a client and connects to a server."""
+    server = socket.create_server(('', PORT))
+    future_client = AcceptClient(server)
+    time.sleep(USER_WAIT)
+    next_address = get_next_address()
+    next_server = socket.create_connection(next_address, TIMEOUT)
+    return future_client.client_socket, next_server
+
+
+def get_next_address():
+    """Calculates the address for the next server to connect with."""
+    hostname = socket.gethostname()
+    # noinspection PyTypeChecker
+    alias = dict(map(reversed, HOSTNAMES.items()))[hostname]
+    next_address = HOSTNAMES[CLIENT_TO_SERVER[alias]], PORT
+    return next_address
+
+
+class AcceptClient(threading.Thread):
+    """Helps with getting a client connection in an asynchronous manner."""
+
+    def __init__(self, server_socket):
+        """Initializes the thread in preparation for a client connection."""
+        super().__init__(daemon=True)
+        self.__server_socket = server_socket
+        self.__client_socket = None
+        self.__client_address = None
+        self.start()
+
+    def run(self):
+        """Executes the method for accepting a client connection."""
+        server = self.__server_socket
+        self.__client_socket, self.__client_address = server.accept()
+
+    @property
+    def client_socket(self):
+        """Gets a socket representing a client connection."""
+        while True:
+            client_socket = self.__client_socket
+            if client_socket is not None:
+                return client_socket
+            time.sleep(SPINLOCK_WAIT)
+
+    @property
+    def client_address(self):
+        """Gets the address for whatever client might be connected."""
+        while True:
+            client_address = self.__client_address
+            if client_address is not None:
+                return client_address
+            time.sleep(SPINLOCK_WAIT)
 
 
 if __name__ == '__main__':
