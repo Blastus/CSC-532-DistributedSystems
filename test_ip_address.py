@@ -53,7 +53,12 @@ __all__ = (
     'main',
     'show_other_host_ip_address',
     'test_server_and_client',
+    'test_round_robin_message_passing',
+    'create_round_robin_connection',
     'get_next_address',
+    'create_pickle_interface',
+    'init_message_loop',
+    'run_message_loop',
     'AcceptClient'
 )
 
@@ -73,7 +78,6 @@ HOSTNAMES = dict(
     Z='ZERO-FINALE'
 )
 CLIENT_TO_SERVER = {'Z': 'A', 'A': 'B', 'B': 'C', 'C': 'D', 'D': 'E', 'E': 'Z'}
-CLIENT_TO_SERVER = {'Z': 'A', 'A': 'Z'}
 PORT = 46656
 USER_WAIT = 10
 TIMEOUT = 1
@@ -90,30 +94,7 @@ def main():
     assert hostname in HOSTNAMES.values(), 'hostname was not found'
     # show_other_host_ip_address(hostname)
     # test_server_and_client(hostname)
-    client, server = create_round_robin_connection()
-    print(f'{client = }\n{server = }')
-    # Create easy-to-use communication channels.
-    read_socket = client.makefile('rb', 0)
-    write_socket = server.makefile('wb', 0)
-    load = pickle.Unpickler(read_socket).load
-    dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
-    # Initialize the message passing with a number.
-    if hostname == HOSTNAMES['Z']:
-        value = 1
-        dump(1)
-        print(f'DUMP {type(value).__name__} value = {value};')
-    # Create a loop for passing messages around the connections.
-    print('Entering message loop ...')
-    while True:
-        # print(f'{read_socket.read(10) = }')
-        value = load()
-        print(f'LOAD {type(value).__name__} value = {value};')
-        value += 1
-        dump(value)
-        print(f'DUMP {type(value).__name__} value = {value};')
-        if value > VALUE_LIMIT:
-            break
-        print()
+    test_round_robin_message_passing(hostname)
 
 
 def show_other_host_ip_address(hostname):
@@ -137,6 +118,15 @@ def test_server_and_client(hostname):
     print('Connected to', next_server, '...')
 
 
+def test_round_robin_message_passing(hostname):
+    """Attempts to pass messages around a loop of several computers."""
+    client, server = create_round_robin_connection()
+    print(f'{client = }\n{server = }')
+    load, dump = create_pickle_interface(client, server)
+    init_message_loop(hostname, dump)
+    run_message_loop(load, dump)
+
+
 def create_round_robin_connection():
     """Gets a connection from a client and connects to a server."""
     server = socket.create_server(('', PORT))
@@ -154,6 +144,37 @@ def get_next_address():
     alias = dict(map(reversed, HOSTNAMES.items()))[hostname]
     next_address = HOSTNAMES[CLIENT_TO_SERVER[alias]], PORT
     return next_address
+
+
+def create_pickle_interface(client, server):
+    """Creates easy-to-use communication channels."""
+    read_socket = client.makefile('rb', 0)
+    write_socket = server.makefile('wb', 0)
+    load = pickle.Unpickler(read_socket).load
+    dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
+    return load, dump
+
+
+def init_message_loop(hostname, dump):
+    """Initializes the message passing with a number."""
+    if hostname == HOSTNAMES['Z']:
+        value = 1
+        dump(1)
+        print(f'DUMP {type(value).__name__} value = {value};')
+
+
+def run_message_loop(load, dump):
+    """Creates a loop for passing messages around the connections."""
+    print('Entering message loop ...')
+    while True:
+        value = load()
+        print(f'LOAD {type(value).__name__} value = {value};')
+        value += 1
+        dump(value)
+        print(f'DUMP {type(value).__name__} value = {value};')
+        if value > VALUE_LIMIT:
+            break
+        print()
 
 
 class AcceptClient(threading.Thread):
