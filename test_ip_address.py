@@ -73,6 +73,7 @@ HOSTNAMES = dict(
     Z='ZERO-FINALE'
 )
 CLIENT_TO_SERVER = {'Z': 'A', 'A': 'B', 'B': 'C', 'C': 'D', 'D': 'E', 'E': 'Z'}
+CLIENT_TO_SERVER = {'Z': 'A', 'A': 'Z'}
 PORT = 46656
 USER_WAIT = 10
 TIMEOUT = 1
@@ -92,10 +93,10 @@ def main():
     client, server = create_round_robin_connection()
     print(f'{client = }\n{server = }')
     # Create easy-to-use communication channels.
-    read_socket = client.makefile('rb')
-    write_socket = server.makefile('wb')
+    read_socket = client.makefile('r')
+    write_socket = server.makefile('w')
     load = pickle.Unpickler(read_socket).load
-    dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
+    dump = pickle.Pickler(write_socket, 0).dump
     # Initialize the message passing with a number.
     if hostname == HOSTNAMES['Z']:
         value = 1
@@ -103,6 +104,7 @@ def main():
         print(f'DUMP {type(value).__name__} value = {value};')
     # Create a loop for passing messages around the connections.
     while True:
+        print(f'{read_socket.read(10) = }')
         value = load()
         print(f'LOAD {type(value).__name__} value = {value};')
         value += 1
