@@ -56,6 +56,7 @@ __all__ = (
     'test_round_robin_message_passing',
     'create_round_robin_connection',
     'get_next_address',
+    'shutdown_sockets',
     'create_pickle_interface',
     'init_message_loop',
     'run_message_loop',
@@ -122,9 +123,11 @@ def test_round_robin_message_passing(hostname):
     """Attempts to pass messages around a loop of several computers."""
     client, server = create_round_robin_connection()
     print(f'{client = }\n{server = }')
+    shutdown_sockets(client, server, False)
     load, dump = create_pickle_interface(client, server)
     init_message_loop(hostname, dump)
     run_message_loop(load, dump)
+    shutdown_sockets(client, server, True)
 
 
 def create_round_robin_connection():
@@ -144,6 +147,18 @@ def get_next_address():
     alias = dict(map(reversed, HOSTNAMES.items()))[hostname]
     next_address = HOSTNAMES[CLIENT_TO_SERVER[alias]], PORT
     return next_address
+
+
+def shutdown_sockets(client, server, final):
+    """Shuts down aspects of the sockets as needed for cleanup purposes."""
+    if final:
+        client.shutdown(socket.SHUT_RD)
+        server.shutdown(socket.SHUT_WR)
+        client.close()
+        server.close()
+    else:
+        client.shutdown(socket.SHUT_WR)
+        server.shutdown(socket.SHUT_RD)
 
 
 def create_pickle_interface(client, server):
@@ -187,6 +202,11 @@ class AcceptClient(threading.Thread):
         self.__client_socket = None
         self.__client_address = None
         self.start()
+
+    def __del__(self):
+        """Shuts down the server socket when it is no longer needed."""
+        print('Shutting down the server ...')
+        self.__server_socket.close()
 
     def run(self):
         """Executes the method for accepting a client connection."""
