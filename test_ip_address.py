@@ -93,8 +93,8 @@ def main():
     client, server = create_round_robin_connection()
     print(f'{client = }\n{server = }')
     # Create easy-to-use communication channels.
-    read_socket = client.makefile('rb')
-    write_socket = server.makefile('wb')
+    read_socket = client.makefile('rb', 0)
+    write_socket = server.makefile('wb', 0)
     load = pickle.Unpickler(read_socket).load
     dump = pickle.Pickler(write_socket, pickle.HIGHEST_PROTOCOL).dump
     # Initialize the message passing with a number.
@@ -103,8 +103,9 @@ def main():
         dump(1)
         print(f'DUMP {type(value).__name__} value = {value};')
     # Create a loop for passing messages around the connections.
+    print('Entering message loop ...')
     while True:
-        print(f'{read_socket.read(10) = }')
+        # print(f'{read_socket.read(10) = }')
         value = load()
         print(f'LOAD {type(value).__name__} value = {value};')
         value += 1
@@ -112,6 +113,7 @@ def main():
         print(f'DUMP {type(value).__name__} value = {value};')
         if value > VALUE_LIMIT:
             break
+        print()
 
 
 def show_other_host_ip_address(hostname):
