@@ -39,7 +39,7 @@ AUTHKEY = uuid.UUID('912e7512-0630-40f4-a62d-71d6a613d2ed')
 
 def main():
     """Starts the test for using multiprocessing over a network."""
-    logger = multiprocessing.log_to_stderr(logging.INFO)
+    logger = multiprocessing.log_to_stderr(logging.DEBUG)
     logger.info(f'Starting {pathlib.Path(sys.argv[0]).name} ...')
     manager = StackManager(('', PORT), AUTHKEY.bytes)
     server = manager.get_server()
@@ -64,28 +64,28 @@ class Stack:
         """Adds top two items together and places result on top."""
         if self.__debug:
             print(f'{type(self).__name__!s}.add()')
-        b, a = self.pop(), self.pop()
+        b, a = self.__data.pop(), self.__data.pop()
         self.__data.append(a + b)
 
     def sub(self):
         """Subtracts top two items together and places result on top."""
         if self.__debug:
             print(f'{type(self).__name__!s}.sub()')
-        b, a = self.pop(), self.pop()
+        b, a = self.__data.pop(), self.__data.pop()
         self.__data.append(a - b)
 
     def mul(self):
         """Multiplies top two items together and places result on top."""
         if self.__debug:
             print(f'{type(self).__name__!s}.mul()')
-        b, a = self.pop(), self.pop()
+        b, a = self.__data.pop(), self.__data.pop()
         self.__data.append(a * b)
 
     def div(self):
         """Divides top two items together and places result on top."""
         if self.__debug:
             print(f'{type(self).__name__!s}.div()')
-        b, a = self.pop(), self.pop()
+        b, a = self.__data.pop(), self.__data.pop()
         self.__data.append(a / b)
 
     def pop(self):
