@@ -10,6 +10,8 @@ import collections
 import datetime
 import enum
 import functools
+import itertools
+import operator
 import string
 
 # Public Names
@@ -107,17 +109,15 @@ def main():
 
 
 class Tokenizer(collections.deque):
-
     """Tokenizer(symbols, source) -> Tokenizer instance
 
     The tokenizer converts the source into an enumeration of symbols."""
 
     def __init__(self, symbols, source):
         """Initialize the Tokenizer with a symbol table and source tokens."""
-        base = tuple(symbols)
-        if len(base) != len(set(base)):
+        self.__base = tuple(symbols)
+        if len(self.__base) != len(set(self.__base)):
             raise ValueError('All symbols must be unique!')
-        self.__base = base
         super().__init__(self(symbol) for symbol in source if symbol in self)
 
     def __contains__(self, symbol):
@@ -130,14 +130,12 @@ class Tokenizer(collections.deque):
 
     def consume(self, pattern):
         """Try to pop the pattern off the front of the token stream."""
-        pattern_len = len(pattern)
-        if len(self) < pattern_len:
+        if len(self) < len(pattern) or not all(
+                itertools.starmap(operator.eq, zip(self, pattern))):
             return False
-        if all(s == p for s, p in zip(self, pattern)):
-            for _ in range(pattern_len):
-                self.pop()
-            return True
-        return False
+        for _ in pattern:
+            self.pop()
+        return True
 
     def pop(self):
         """Pull a token off the front of the token stream."""
@@ -151,7 +149,7 @@ def auto():
 
 
 class Arg(enum.IntEnum):
-    """The ARG table contains argument types."""
+    """The Arg enumeration contains argument types."""
 
     NULL = auto()
     NUMBER = auto()
@@ -159,7 +157,7 @@ class Arg(enum.IntEnum):
 
 
 class Op(enum.IntEnum):
-    """The OP table contains operation codes."""
+    """The Op enumeration contains operation codes."""
 
     RETRIEVE = auto()
     STORE = auto()
@@ -188,7 +186,6 @@ class Op(enum.IntEnum):
 
 
 class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
-
     """Prototype(pattern, argument, code) -> Prototype instance
 
     Prototypes provide data for decoding individual instructions correctly."""
@@ -208,7 +205,7 @@ class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
 
     @staticmethod
     def _check(code):
-        """Validate that instruction code is in operation table."""
+        """Validate that the instruction code is in Op enumeration."""
         try:
             Op(code)
         except ValueError:
@@ -247,7 +244,6 @@ assert INS == tuple(sorted(INS, key=lambda ins: ins.code)), \
 
 
 class Compiler:
-
     """Compiler(tokenizer) -> Compiler instance
 
     The compiler generates code objects subject to further processing."""
@@ -272,10 +268,12 @@ class Compiler:
     def __parse_instructions(self):
         """Process the stream and return the relative instruction codes."""
         while self.__stream:
-            for pattern, argument, code in INS:
-                if self.__stream.consume(pattern):
+            for prototype in INS:
+                if self.__stream.consume(prototype.pattern):
                     try:
-                        yield code, self.__handlers[argument]()
+                        code = prototype.code.value
+                        argument = self.__handlers[prototype.argument]()
+                        yield code, argument
                     except KeyError:
                         raise ValueError('Unexpected argument type found!')
                     break
@@ -322,12 +320,11 @@ class Compiler:
         """Convert a number into a valid identifier."""
         if number < cls.HEAD_BASE:
             return cls.HEAD_CHAR[number]
-        q, r = divmod(number - cls.HEAD_BASE, cls.TAIL_BASE)
-        return cls.__number_to_name(q) + cls.TAIL_CHAR[r]
+        quotient, remainder = divmod(number - cls.HEAD_BASE, cls.TAIL_BASE)
+        return cls.__number_to_name(quotient) + cls.TAIL_CHAR[remainder]
 
 
 class Code(tuple):
-
     """Code(iterable) -> Code instance
 
     The code object verifies all instructions provided at creation time."""
@@ -351,7 +348,8 @@ class Code(tuple):
             # noinspection PyProtectedMember
             Prototype._check(code)
             try:
-                if not cls.VALIDATORS[INS[code - 1].argument](argument):
+                validator = cls.VALIDATORS[INS[code - 1].argument.value]
+                if not validator(argument):
                     raise TypeError('Code argument was of unexpected type!')
             except KeyError:
                 raise ValueError('Unexpected argument type found!')
