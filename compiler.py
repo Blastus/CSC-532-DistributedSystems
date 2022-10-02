@@ -1,32 +1,78 @@
 #! /usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Provide a way to compile WS into a basic machine representation.
 
 This module contains facilities for compiling WS code into a representation
 suitable as a starting point for interpretation. Several tables can be read
 to provide further support for understanding the generated code objects."""
 
-__author__ = 'Stephen "Zero" Chappell <Noctis.Skytower@gmail.com>'
-__date__ = '19 September 2013'
-__version__ = 2, 0, 0
-
-################################################################################
-
-# These are modules that are used in the code below.
-
 import collections
+import datetime
 import functools
 import string
 
-################################################################################
+# Public Names
+__all__ = (
+    'main',
+    'Tokenizer',
+    'enum',
+    'ARG',
+    'OP',
+    'Prototype',
+    'INS',
+    'Compiler',
+    'Code'
+)
 
-# The tokenizer converts the source into an enumeration of symbols.
+# Module Documentation
+__version__ = 2, 0, 1
+__date__ = datetime.date(2022, 10, 2)
+__author__ = 'Stephen Paul Chappell'
+__credits__ = 'CSC-532'
+
+
+def main():
+    """Test the capabilities of the compiler code for its correctness."""
+    source = ('\t\t\t',
+              '\t\t ',
+              '\t\n\t\t',
+              '\t\n\t ',
+              '\t\n \t',
+              '\t\n  ',
+              '\t \t\t',
+              '\t \t ',
+              '\t  \t',
+              '\t  \n',
+              '\t   ',
+              '\n\t\t', '\n',
+              '\n\t\n',
+              '\n\t ', ' \n',
+              '\n\n\n',
+              '\n \t', '\t\n',
+              '\n \n', '  \n',
+              '\n  ', ' \t\n',
+              ' \t\n', '\n',
+              ' \t ', ' \n',
+              ' \n\t',
+              ' \n\n',
+              ' \n ',
+              '  ', '  \n')
+    code = Code(enumerate((None, None, None, None, None, None, None, None,
+                           None, None, None, 'A',  None, 'B',  None, 'C',
+                           'D',  'E',  0,    0,    None, None, None, 0)))
+    compiled_code = Compiler(Prototype.SYMBOLS).compile(''.join(source))
+    if compiled_code != code:
+        raise ValueError('Code was not compiled correctly!')
+
 
 class Tokenizer(collections.deque):
 
-    "Tokenizer(symbols, source) -> Tokenizer instance"
+    """Tokenizer(symbols, source) -> Tokenizer instance
+
+    The tokenizer converts the source into an enumeration of symbols."""
 
     def __init__(self, symbols, source):
-        "Initialize the Tokenizer with a symbol table and source tokens."
+        """Initialize the Tokenizer with a symbol table and source tokens."""
         base = tuple(symbols)
         if len(base) != len(set(base)):
             raise ValueError('All symbols must be unique!')
@@ -34,15 +80,15 @@ class Tokenizer(collections.deque):
         super().__init__(self(symbol) for symbol in source if symbol in self)
 
     def __contains__(self, symbol):
-        "Check if symbol is recognized by the tokenizer."
+        """Check if symbol is recognized by the tokenizer."""
         return symbol in self.__base
 
     def __call__(self, symbol):
-        "Convert symbol into its enumerated form if possible."
+        """Convert symbol into its enumerated form if possible."""
         return self.__base.index(symbol)
 
     def consume(self, pattern):
-        "Try to pop the pattern off the front of the token stream."
+        """Try to pop the pattern off the front of the token stream."""
         pattern_len = len(pattern)
         if len(self) < pattern_len:
             return False
@@ -53,17 +99,18 @@ class Tokenizer(collections.deque):
         return False
 
     def pop(self):
-        "Pull a token off the front of the token stream."
+        """Pull a token off the front of the token stream."""
         return self.popleft()
 
-################################################################################
-
-# The ARG table contains argument types; the OP table contains operation codes.
 
 def enum(names):
-    "Create a simple enumeration having similarities to C."
+    """Create a simple enumeration having similarities to C."""
+    # noinspection PyTypeChecker
     return type('enum', (), dict(map(reversed, enumerate(
         names.replace(',', ' ').split())), __slots__=()))()
+
+
+# The ARG table contains argument types; the OP table contains operation codes.
 
 ARG = enum('NULL, NUMBER, LABEL')
 
@@ -73,29 +120,29 @@ MODULO, INTEGER_DIVISION, SUBTRACTION, MULTIPLICATION, ADDITION,
 JUMP_IF_NEGATIVE, END_SUBROUTINE, JUMP_IF_ZERO, END_PROGRAM, CALL_SUBROUTINE,
 JUMP_ALWAYS, MARK_LOCATION, SLIDE, COPY, SWAP, DISCARD, DUPLICATE, PUSH''')
 
-################################################################################
-
-# Prototypes provide data for decoding individual instructions correctly.
 
 class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
 
-    "Prototype(pattern, argument, code) -> Prototype instance"
+    """Prototype(pattern, argument, code) -> Prototype instance
+
+    Prototypes provide data for decoding individual instructions correctly."""
 
     SYMBOLS = functools.partial(Tokenizer, '\t\n ')
 
     def __new__(cls, pattern, argument, code):
-        "Check and fix the arguments before creating the Prototype."
+        """Check and fix the arguments before creating the Prototype."""
         prototype = tuple(cls.SYMBOLS(pattern))
         if len(pattern) != len(prototype):
             raise ValueError('An unexpected symbol was found!')
         if argument not in vars(type(ARG)).values():
             raise ValueError('An unexpected argument type was given!')
         cls._check(code)
+        # noinspection PyArgumentList
         return super().__new__(cls, prototype, argument, code)
 
     @staticmethod
     def _check(code):
-        "Validate that instruction code is in operation table."
+        """Validate that instruction code is in operation table."""
         if code not in vars(type(OP)).values():
             raise ValueError('An unexpected operation code was given!')
 
@@ -135,9 +182,6 @@ class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
 #           ' '     Push
 ########################################
 
-################################################################################
-
-# The INS table is created from the documentation above and then checked.
 
 INS = (Prototype('\t\t\t', ARG.NULL, OP.RETRIEVE),
        Prototype('\t\t ', ARG.NULL, OP.STORE),
@@ -169,32 +213,32 @@ assert INS == tuple(sorted(INS, key=lambda ins: ins.pattern)), \
 assert INS == tuple(sorted(INS, key=lambda ins: ins.code)), \
        'Codes were not in the expected order!'
 
-################################################################################
-
-# The compiler generates code objects that can be processed further if needed.
 
 class Compiler:
 
-    "Compiler(tokenizer) -> Compiler instance"
+    """Compiler(tokenizer) -> Compiler instance
+
+    The compiler generates code objects subject to further processing."""
 
     HEAD_CHAR = ''.join(sorted(string.ascii_letters + '_'))
     TAIL_CHAR = ''.join(sorted(string.digits + HEAD_CHAR))
     HEAD_BASE, TAIL_BASE = len(HEAD_CHAR), len(TAIL_CHAR)
 
     def __init__(self, tokenizer):
-        "Initialize the Compiler with the tokenizer to use on the source."
+        """Initialize the Compiler with the tokenizer to use on the source."""
         self.__tokenizer = tokenizer
         self.__handlers = {ARG.NULL: lambda: None,
                            ARG.NUMBER: self.__parse_number,
                            ARG.LABEL: self.__parse_label}
+        self.__stream = None
 
     def compile(self, source):
-        "Compile the source into a code object to be used elsewhere."
+        """Compile the source into a code object to be used elsewhere."""
         self.__stream = self.__tokenizer(source)
         return Code(self.__parse_instructions())
 
     def __parse_instructions(self):
-        "Process the stream and return the relative instruction codes."
+        """Process the stream and return the relative instruction codes."""
         while self.__stream:
             for pattern, argument, code in INS:
                 if self.__stream.consume(pattern):
@@ -207,7 +251,7 @@ class Compiler:
                 raise ValueError('Unexpected instruction code found!')
 
     def __parse_number(self):
-        "Interpret the head of the stream as a number."
+        """Interpret the head of the stream as a number."""
         bits = tuple(self.__get_bits())
         if bits:
             sign, *bits = bits
@@ -215,7 +259,7 @@ class Compiler:
         return 0
 
     def __get_bits(self):
-        "Return the bits of either a number or a label."
+        """Return the bits of either a number or a label."""
         while True:
             value = self.__stream.pop()
             if value == self.__stream('\n'):
@@ -224,55 +268,55 @@ class Compiler:
 
     @staticmethod
     def __binary_bits_to_number(bits):
-        "Convert a binary bit string into a number."
+        """Convert a binary bit string into a number."""
         value = 0
         for bit in bits:
             value = value << 1 | bit
         return value
 
     def __parse_label(self):
-        "Interpret the head of the stream as a label."
+        """Interpret the head of the stream as a label."""
         bits = tuple(self.__get_bits())
         number = self.__name_bits_to_number(bits)
         return self.__number_to_name(number)
 
     @classmethod
     def __name_bits_to_number(cls, bits):
-        "Convert a name bit string into a number."
+        """Convert a name bit string into a number."""
         return cls.__binary_bits_to_number(bits) + (1 << len(bits)) - 1
 
     @classmethod
     def __number_to_name(cls, number):
-        "Convert a number into a valid identifier."
+        """Convert a number into a valid identifier."""
         if number < cls.HEAD_BASE:
             return cls.HEAD_CHAR[number]
         q, r = divmod(number - cls.HEAD_BASE, cls.TAIL_BASE)
         return cls.__number_to_name(q) + cls.TAIL_CHAR[r]
 
-################################################################################
-
-# The code object verifies all instructions provided at creation time.
 
 class Code(tuple):
 
-    "Code(iterable) -> Code instance"
+    """Code(iterable) -> Code instance
+
+    The code object verifies all instructions provided at creation time."""
 
     VALIDATORS = {ARG.NULL: lambda argument: argument is None,
                   ARG.NUMBER: lambda argument: isinstance(argument, int),
                   ARG.LABEL: lambda argument: isinstance(argument, str)}
 
     def __new__(cls, iterable):
-        "Create a new Code object while verifying the iterable."
+        """Create a new Code object while verifying the iterable."""
         return super().__new__(cls, (cls._check(item) for item in iterable))
 
     @classmethod
     def _check(cls, item):
-        "Make sure that the item has the expected instruction format."
+        """Make sure that the item has the expected instruction format."""
         try:
             code, argument = item
         except ValueError:
             raise ValueError('Items in iterable must be code/argument pairs!')
         else:
+            # noinspection PyProtectedMember
             Prototype._check(code)
             try:
                 if not cls.VALIDATORS[INS[code].argument](argument):
@@ -281,41 +325,6 @@ class Code(tuple):
                 raise ValueError('Unexpected argument type found!')
         return code, argument
 
-################################################################################
-
-def test():
-    source = ('\t\t\t',
-              '\t\t ',
-              '\t\n\t\t',
-              '\t\n\t ',
-              '\t\n \t',
-              '\t\n  ',
-              '\t \t\t',
-              '\t \t ',
-              '\t  \t',
-              '\t  \n',
-              '\t   ',
-              '\n\t\t', '\n',
-              '\n\t\n',
-              '\n\t ', ' \n',
-              '\n\n\n',
-              '\n \t', '\t\n',
-              '\n \n', '  \n',
-              '\n  ', ' \t\n',
-              ' \t\n', '\n',
-              ' \t ', ' \n',
-              ' \n\t',
-              ' \n\n',
-              ' \n ',
-              '  ', '  \n')
-    code = Code(enumerate((None, None, None, None, None, None, None, None,
-                           None, None, None, 'A',  None, 'B',  None, 'C',
-                           'D',  'E',  0,    0,    None, None, None, 0)))
-    compiled_code = Compiler(Prototype.SYMBOLS).compile(''.join(source))
-    if compiled_code != code:
-        raise ValueError('Code was not compiled correctly!')
-
-################################################################################
 
 if __name__ == '__main__':
-    test()
+    main()
