@@ -8,16 +8,18 @@ to provide further support for understanding the generated code objects."""
 
 import collections
 import datetime
+import enum
 import functools
 import string
 
 # Public Names
 __all__ = (
+    'INSTRUCTION_DOCUMENTATION',
     'main',
     'Tokenizer',
-    'enum',
-    'ARG',
-    'OP',
+    'auto',
+    'Arg',
+    'Op',
     'Prototype',
     'INS',
     'Compiler',
@@ -30,9 +32,48 @@ __date__ = datetime.date(2022, 10, 2)
 __author__ = 'Stephen Paul Chappell'
 __credits__ = 'CSC-532'
 
+# Symbolic Constants
+INSTRUCTION_DOCUMENTATION = r'''
+--------------------------------
+'\t\t'  Heap Access
+        '\t'    Retrieve
+        ' '     Store
+--------------------------------
+'\t\n'  I/O
+        '\t\t'  Read Number
+        '\t '   Read Character
+        ' \t'   Output Number
+        '  '    Output Character
+--------------------------------
+'\t '   Arithmetic
+        '\t\t'  Modulo
+        '\t '   Integer Division
+        ' \t'   Subtraction
+        ' \n'   Multiplication
+        '  '    Addition
+--------------------------------
+'\n'    Flow Control
+        '\t\t'  Jump If Negative
+        '\t\n'  End Subroutine
+        '\t '   Jump If Zero
+        '\n\n'  End Program
+        ' \t'   Call Subroutine
+        ' \n'   Jump Always
+        '  '    Mark Location
+--------------------------------
+' '     Stack Manipulation
+        '\t\n'  Slide
+        '\t '   Copy
+        '\n\t'  Swap
+        '\n\n'  Discard
+        '\n '   Duplicate
+        ' '     Push
+--------------------------------
+'''
+
 
 def main():
-    """Test the capabilities of the compiler code for its correctness."""
+    """Tests the capabilities of the compiler code for its correctness."""
     source = ('\t\t\t',
               '\t\t ',
               '\t\n\t\t',
@@ -59,7 +100,7 @@ def main():
               '  ', '  \n')
     code = Code(enumerate((None, None, None, None, None, None, None, None,
                            None, None, None, 'A',  None, 'B',  None, 'C',
-                           'D',  'E',  0,    0,    None, None, None, 0)))
+                           'D',  'E',  0,    0,    None, None, None, 0), 1))
     compiled_code = Compiler(Prototype.SYMBOLS).compile(''.join(source))
     if compiled_code != code:
         raise ValueError('Code was not compiled correctly!')
@@ -103,22 +144,47 @@ class Tokenizer(collections.deque):
         return self.popleft()
 
 
-def enum(names):
-    """Create a simple enumeration having similarities to C."""
-    # noinspection PyTypeChecker
-    return type('enum', (), dict(map(reversed, enumerate(
-        names.replace(',', ' ').split())), __slots__=()))()
+def auto():
+    """Helps simplify inspections against instantiating the auto class."""
+    # noinspection PyArgumentList
+    return enum.auto()
 
 
-# The ARG table contains argument types; the OP table contains operation codes.
+class Arg(enum.IntEnum):
+    """The ARG table contains argument types."""
 
-ARG = enum('NULL, NUMBER, LABEL')
+    NULL = auto()
+    NUMBER = auto()
+    LABEL = auto()
 
-OP = enum('''\
-RETRIEVE, STORE, READ_NUMBER, READ_CHARACTER, OUTPUT_NUMBER, OUTPUT_CHARACTER,
-MODULO, INTEGER_DIVISION, SUBTRACTION, MULTIPLICATION, ADDITION,
-JUMP_IF_NEGATIVE, END_SUBROUTINE, JUMP_IF_ZERO, END_PROGRAM, CALL_SUBROUTINE,
-JUMP_ALWAYS, MARK_LOCATION, SLIDE, COPY, SWAP, DISCARD, DUPLICATE, PUSH''')
+
+class Op(enum.IntEnum):
+    """The OP table contains operation codes."""
+
+    RETRIEVE = auto()
+    STORE = auto()
+    READ_NUMBER = auto()
+    READ_CHARACTER = auto()
+    OUTPUT_NUMBER = auto()
+    OUTPUT_CHARACTER = auto()
+    MODULO = auto()
+    INTEGER_DIVISION = auto()
+    SUBTRACTION = auto()
+    MULTIPLICATION = auto()
+    ADDITION = auto()
+    JUMP_IF_NEGATIVE = auto()
+    END_SUBROUTINE = auto()
+    JUMP_IF_ZERO = auto()
+    END_PROGRAM = auto()
+    CALL_SUBROUTINE = auto()
+    JUMP_ALWAYS = auto()
+    MARK_LOCATION = auto()
+    SLIDE = auto()
+    COPY = auto()
+    SWAP = auto()
+    DISCARD = auto()
+    DUPLICATE = auto()
+    PUSH = auto()
 
 
 class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
@@ -134,8 +200,8 @@ class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
         prototype = tuple(cls.SYMBOLS(pattern))
         if len(pattern) != len(prototype):
             raise ValueError('An unexpected symbol was found!')
-        if argument not in vars(type(ARG)).values():
-            raise ValueError('An unexpected argument type was given!')
+        if not isinstance(argument, Arg):
+            raise TypeError('An unexpected argument type was given!')
         cls._check(code)
         # noinspection PyArgumentList
         return super().__new__(cls, prototype, argument, code)
@@ -143,70 +209,36 @@ class Prototype(collections.namedtuple('base', 'pattern, argument, code')):
     @staticmethod
     def _check(code):
         """Validate that instruction code is in operation table."""
-        if code not in vars(type(OP)).values():
-            raise ValueError('An unexpected operation code was given!')
-
-########################################
-# '\t\t'    Heap Access
-#           '\t'    Retrieve
-#           ' '     Store
-########################################
-# '\t\n'    I/O
-#           '\t\t'  Read Number
-#           '\t '   Read Character
-#           ' \t'   Output Number
-#           '  '    Output Character
-########################################
-# '\t '     Arithmetic
-#           '\t\t'  Modulo
-#           '\t '   Integer Division
-#           ' \t'   Subtraction
-#           ' \n'   Multiplication
-#           '  '    Addition
-########################################
-# '\n'      Flow Control
-#           '\t\t'  Jump If Negative
-#           '\t\n'  End Subroutine
-#           '\t '   Jump If Zero
-#           '\n\n'  End Program
-#           ' \t'   Call Subroutine
-#           ' \n'   Jump Always
-#           '  '    Mark Location
-########################################
-# ' '       Stack Manipulation
-#           '\t\n'  Slide
-#           '\t '   Copy
-#           '\n\t'  Swap
-#           '\n\n'  Discard
-#           '\n '   Duplicate
-#           ' '     Push
-########################################
+        try:
+            Op(code)
+        except ValueError:
+            raise TypeError('An unexpected operation code was given!')
 
 
-INS = (Prototype('\t\t\t', ARG.NULL, OP.RETRIEVE),
-       Prototype('\t\t ', ARG.NULL, OP.STORE),
-       Prototype('\t\n\t\t', ARG.NULL, OP.READ_NUMBER),
-       Prototype('\t\n\t ', ARG.NULL, OP.READ_CHARACTER),
-       Prototype('\t\n \t', ARG.NULL, OP.OUTPUT_NUMBER),
-       Prototype('\t\n  ', ARG.NULL, OP.OUTPUT_CHARACTER),
-       Prototype('\t \t\t', ARG.NULL, OP.MODULO),
-       Prototype('\t \t ', ARG.NULL, OP.INTEGER_DIVISION),
-       Prototype('\t  \t', ARG.NULL, OP.SUBTRACTION),
-       Prototype('\t  \n', ARG.NULL, OP.MULTIPLICATION),
-       Prototype('\t   ', ARG.NULL, OP.ADDITION),
-       Prototype('\n\t\t', ARG.LABEL, OP.JUMP_IF_NEGATIVE),
-       Prototype('\n\t\n', ARG.NULL, OP.END_SUBROUTINE),
-       Prototype('\n\t ', ARG.LABEL, OP.JUMP_IF_ZERO),
-       Prototype('\n\n\n', ARG.NULL, OP.END_PROGRAM),
-       Prototype('\n \t', ARG.LABEL, OP.CALL_SUBROUTINE),
-       Prototype('\n \n', ARG.LABEL, OP.JUMP_ALWAYS),
-       Prototype('\n  ', ARG.LABEL, OP.MARK_LOCATION),
-       Prototype(' \t\n', ARG.NUMBER, OP.SLIDE),
-       Prototype(' \t ', ARG.NUMBER, OP.COPY),
-       Prototype(' \n\t', ARG.NULL, OP.SWAP),
-       Prototype(' \n\n', ARG.NULL, OP.DISCARD),
-       Prototype(' \n ', ARG.NULL, OP.DUPLICATE),
-       Prototype('  ', ARG.NUMBER, OP.PUSH))
+INS = (Prototype('\t\t\t', Arg.NULL, Op.RETRIEVE),
+       Prototype('\t\t ', Arg.NULL, Op.STORE),
+       Prototype('\t\n\t\t', Arg.NULL, Op.READ_NUMBER),
+       Prototype('\t\n\t ', Arg.NULL, Op.READ_CHARACTER),
+       Prototype('\t\n \t', Arg.NULL, Op.OUTPUT_NUMBER),
+       Prototype('\t\n  ', Arg.NULL, Op.OUTPUT_CHARACTER),
+       Prototype('\t \t\t', Arg.NULL, Op.MODULO),
+       Prototype('\t \t ', Arg.NULL, Op.INTEGER_DIVISION),
+       Prototype('\t  \t', Arg.NULL, Op.SUBTRACTION),
+       Prototype('\t  \n', Arg.NULL, Op.MULTIPLICATION),
+       Prototype('\t   ', Arg.NULL, Op.ADDITION),
+       Prototype('\n\t\t', Arg.LABEL, Op.JUMP_IF_NEGATIVE),
+       Prototype('\n\t\n', Arg.NULL, Op.END_SUBROUTINE),
+       Prototype('\n\t ', Arg.LABEL, Op.JUMP_IF_ZERO),
+       Prototype('\n\n\n', Arg.NULL, Op.END_PROGRAM),
+       Prototype('\n \t', Arg.LABEL, Op.CALL_SUBROUTINE),
+       Prototype('\n \n', Arg.LABEL, Op.JUMP_ALWAYS),
+       Prototype('\n  ', Arg.LABEL, Op.MARK_LOCATION),
+       Prototype(' \t\n', Arg.NUMBER, Op.SLIDE),
+       Prototype(' \t ', Arg.NUMBER, Op.COPY),
+       Prototype(' \n\t', Arg.NULL, Op.SWAP),
+       Prototype(' \n\n', Arg.NULL, Op.DISCARD),
+       Prototype(' \n ', Arg.NULL, Op.DUPLICATE),
+       Prototype('  ', Arg.NUMBER, Op.PUSH))
 
 assert INS == tuple(sorted(INS, key=lambda ins: ins.pattern)), \
        'Patterns were not in the expected order!'
@@ -227,9 +259,9 @@ class Compiler:
     def __init__(self, tokenizer):
         """Initialize the Compiler with the tokenizer to use on the source."""
         self.__tokenizer = tokenizer
-        self.__handlers = {ARG.NULL: lambda: None,
-                           ARG.NUMBER: self.__parse_number,
-                           ARG.LABEL: self.__parse_label}
+        self.__handlers = {Arg.NULL: lambda: None,
+                           Arg.NUMBER: self.__parse_number,
+                           Arg.LABEL: self.__parse_label}
         self.__stream = None
 
     def compile(self, source):
@@ -300,9 +332,9 @@ class Code(tuple):
 
     The code object verifies all instructions provided at creation time."""
 
-    VALIDATORS = {ARG.NULL: lambda argument: argument is None,
-                  ARG.NUMBER: lambda argument: isinstance(argument, int),
-                  ARG.LABEL: lambda argument: isinstance(argument, str)}
+    VALIDATORS = {Arg.NULL: lambda argument: argument is None,
+                  Arg.NUMBER: lambda argument: isinstance(argument, int),
+                  Arg.LABEL: lambda argument: isinstance(argument, str)}
 
     def __new__(cls, iterable):
         """Create a new Code object while verifying the iterable."""
@@ -319,7 +351,7 @@ class Code(tuple):
             # noinspection PyProtectedMember
             Prototype._check(code)
             try:
-                if not cls.VALIDATORS[INS[code].argument](argument):
+                if not cls.VALIDATORS[INS[code - 1].argument](argument):
                     raise TypeError('Code argument was of unexpected type!')
             except KeyError:
                 raise ValueError('Unexpected argument type found!')
