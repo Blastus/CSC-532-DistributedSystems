@@ -68,7 +68,9 @@ def main():
                           (compiler.Op.SLIDE, 2),
                           (compiler.Op.END_SUBROUTINE, None)))
     # Processor(code, interface.ProcessorInterface()).run()
-    Processor(code, unittest.mock.Mock()).run()
+    interface = unittest.mock.Mock(spec_set=(
+        'read_number', 'read_character', 'output_number', 'output_character'))
+    Processor(code, interface).run()
 
 
 class Executable(tuple):
@@ -163,7 +165,6 @@ class Stack(collections.deque):
         self.append(self[-1])
 
     # Stack.push is a synonym for deque.append.
-
     push = collections.deque.append
 
 
@@ -263,6 +264,7 @@ class Processor:
 
         def mark_location(_):
             raise NotImplementedError()
+
         # Create handler mapping for operations.
         handlers = {0: None,
                     compiler.Op.RETRIEVE: retrieve,
@@ -292,14 +294,12 @@ class Processor:
         # Verify and optimize handler mapping.
         if handlers.keys() != set(range(len(handlers))):
             raise ValueError('A contiguous set of handlers is needed!')
-        handlers = (None,) + \
-            tuple(handlers[operation] for operation in sorted(handlers))
+        handlers = tuple(handlers[operation] for operation in sorted(handlers))
         # Enter virtual machine code processing loop.
         try:
             while True:
                 operation, argument = executable[index]
                 index += 1
-                # noinspection PyCallingNonCallable
                 handlers[operation](argument)
         except SystemExit:
             pass
