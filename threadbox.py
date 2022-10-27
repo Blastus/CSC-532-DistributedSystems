@@ -11,6 +11,7 @@ __version__ = 1, 0, 1
 
 ################################################################################
 
+import abc
 import functools
 import affinity
 
@@ -20,7 +21,7 @@ class _object: __slots__ = '_MetaBox__exec', '__dict__'
 
 ################################################################################
 
-class MetaBox(type):
+class MetaBox(abc.ABCMeta):
 
     "MetaBox(name, bases, classdict, old=None) -> MetaBox instance"
 

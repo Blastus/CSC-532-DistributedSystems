@@ -28,6 +28,7 @@ __credits__ = 'CSC-532'
 
 
 def main():
+    """Tests the various operations that a Processor should perform."""
     # import interface
     import unittest.mock
     code = compiler.Code(((compiler.Op.PUSH, 1),
