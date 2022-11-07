@@ -100,8 +100,14 @@ if USE_META_DEBUG:
 
             @functools.wraps(value)
             def wrapper(self, *args, **kwargs):
-                result = value(self, *args, **kwargs)
-                mcs.echo(name, key, args, kwargs, result)
+                result = None
+                try:
+                    result = value(self, *args, **kwargs)
+                except BaseException as error:
+                    result = error
+                    raise
+                finally:
+                    mcs.echo(name, key, args, kwargs, result)
                 return result
 
             return wrapper
@@ -123,8 +129,14 @@ if USE_META_DEBUG:
 
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
-            result = function(*args, **kwargs)
-            MetaDebug.echo(function, args, kwargs, result)
+            result = None
+            try:
+                result = function(*args, **kwargs)
+            except BaseException as error:
+                result = error
+                raise
+            finally:
+                MetaDebug.echo(function, args, kwargs, result)
             return result
 
         return wrapper
