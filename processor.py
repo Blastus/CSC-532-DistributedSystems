@@ -8,12 +8,16 @@ execute a code instance after arranging absolute jump address computation."""
 
 import collections
 import datetime
+import functools
 
 import compiler
 
 # Public Names
 __all__ = (
+    'USE_META_DEBUG',
     'main',
+    'MetaDebug',
+    'debug',
     'Executable',
     'Stack',
     'Heap',
@@ -25,6 +29,9 @@ __version__ = 2, 0, 1
 __date__ = datetime.date(2022, 10, 9)
 __author__ = 'Stephen Paul Chappell'
 __credits__ = 'CSC-532'
+
+# Symbolic Constants
+USE_META_DEBUG = True
 
 
 def main():
@@ -74,7 +81,63 @@ def main():
     Processor(code, interface).run()
 
 
-class Executable(tuple):
+if USE_META_DEBUG:
+    class MetaDebug(type):
+        """Helps with seeing method calls on an instance of a class."""
+
+        NULL = object()
+
+        def __new__(mcs, name, bases, class_dict):
+            """Allocates space for a new class after wrapping callables."""
+            for key, value in class_dict.items():
+                if callable(value):
+                    class_dict[key] = mcs.__wrap(name, key, value)
+            return super().__new__(mcs, name, bases, class_dict)
+
+        @classmethod
+        def __wrap(mcs, name, key, value):
+            """Creates a new method that displays the call and results."""
+
+            @functools.wraps(value)
+            def wrapper(self, *args, **kwargs):
+                result = value(self, *args, **kwargs)
+                mcs.echo(name, key, args, kwargs, result)
+                return result
+
+            return wrapper
+
+        @classmethod
+        def echo(mcs, prefix, name, args, kwargs, result=NULL):
+            """Displays debugging information for functions and methods."""
+            if result is mcs.NULL:
+                prefix, name, args, kwargs, result = \
+                    prefix.__module__, prefix.__name__, name, args, kwargs
+            args = ', '.join(map(repr, args))
+            kwargs = ', '.join(f'{k!s}={v!r}' for k, v in kwargs.items())
+            parameters = ', '.join(filter(None, (args, kwargs)))
+            print(f'{prefix!s}.{name!s}({parameters!s}) -> {result!r}')
+
+
+    def debug(function):
+        """Creates a new function that displays the call and results."""
+
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            result = function(*args, **kwargs)
+            MetaDebug.echo(function, args, kwargs, result)
+            return result
+
+        return wrapper
+else:
+    MetaDebug = type
+
+
+    def debug(function):
+        """Does nothing."""
+        return function
+
+
+class Executable(tuple, metaclass=MetaDebug):
     """Executable(instructions) -> Executable instance
 
     The executable converts code into a form that runs on the processor."""
@@ -107,7 +170,7 @@ class Executable(tuple):
                 yield operation, argument
 
 
-class Stack(collections.deque):
+class Stack(collections.deque, metaclass=MetaDebug):
     """Stack() -> Stack instance
 
     The stack implements all of the various stack operations."""
@@ -169,7 +232,7 @@ class Stack(collections.deque):
     push = collections.deque.append
 
 
-class Heap(dict):
+class Heap(dict, metaclass=MetaDebug):
     """Heap() -> Heap instance
 
     The heap acts as the virtual machine's global memory manager."""
@@ -239,56 +302,69 @@ class Processor:
              call.pop, call.append)
 
         # Create heap control handlers.
+        @debug
         def retrieve(_):
             # noinspection PyArgumentList
             stack_push(heap_retrieve(stack_pop()))
 
+        @debug
         def store(_):
             # noinspection PyArgumentList
             heap_store(stack_pop(), stack_pop())
 
         # Create input and output handlers.
+        @debug
         def read_number(_):
             # noinspection PyArgumentList
             heap_store(io_read_number(), stack_pop())
 
+        @debug
         def read_character(_):
             # noinspection PyArgumentList
             heap_store(ord(io_read_character()), stack_pop())
 
+        @debug
         def output_number(_):
             io_output_number(stack_pop())
 
+        @debug
         def output_character(_):
             io_output_character(chr(stack_pop()))
 
         # Create flow control handlers.
+        @debug
         def jump_if_negative(number):
             nonlocal index
             if stack_pop() < 0:
                 index = number
 
+        @debug
         def end_subroutine(_):
             nonlocal index
             index = call_pop()
 
+        @debug
         def jump_if_zero(number):
             nonlocal index
             if not stack_pop():
                 index = number
 
+        @debug
         def end_program(_):
             raise SystemExit()
 
+        @debug
         def call_subroutine(number):
             nonlocal index
             call_append(index)
             index = number
 
+        @debug
         def jump_always(number):
             nonlocal index
             index = number
 
+        @debug
         def mark_location(_):
             raise NotImplementedError()
 
