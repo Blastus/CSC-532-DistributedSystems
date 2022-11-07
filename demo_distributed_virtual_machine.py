@@ -14,8 +14,10 @@ import logging
 import multiprocessing
 import multiprocessing.managers
 import socket
+import unittest.mock
 import uuid
 
+import compiler
 import processor
 
 # Public Names
@@ -108,6 +110,59 @@ ExecutableManager.register('Executable', processor.Executable)
 def run_processor_client_server():
     """Create a managed client & server for a distributed processor."""
     LOGGER.info('Starting the processor client & server ...')
+    # The following is just test code to get a processor to connect
+    # to distributed systems -- the heap, stack, and executable.
+    code = compiler.Code(((compiler.Op.PUSH, 1),
+                          (compiler.Op.PUSH, 2),
+                          (compiler.Op.PUSH, 3),
+                          (compiler.Op.DUPLICATE, None),
+                          (compiler.Op.COPY, 3),
+                          (compiler.Op.COPY, 3),
+                          (compiler.Op.COPY, 2),
+                          (compiler.Op.PUSH, 0),
+                          (compiler.Op.DUPLICATE, None),
+                          (compiler.Op.COPY, 4),
+                          (compiler.Op.CALL_SUBROUTINE, 'A'),
+                          (compiler.Op.JUMP_ALWAYS, 'B'),
+                          (compiler.Op.MARK_LOCATION, 'D'),
+                          (compiler.Op.ADDITION, None),
+                          (compiler.Op.JUMP_IF_ZERO, 'E'),
+                          (compiler.Op.MARK_LOCATION, 'C'),
+                          (compiler.Op.JUMP_ALWAYS, 'C'),
+                          (compiler.Op.MARK_LOCATION, 'B'),
+                          (compiler.Op.DISCARD, None),
+                          (compiler.Op.END_PROGRAM, None),
+                          (compiler.Op.MARK_LOCATION, 'A'),
+                          (compiler.Op.STORE, None),
+                          (compiler.Op.RETRIEVE, None),
+                          (compiler.Op.COPY, 1),
+                          (compiler.Op.COPY, 3),
+                          (compiler.Op.MODULO, None),
+                          (compiler.Op.INTEGER_DIVISION, None),
+                          (compiler.Op.SWAP, None),
+                          (compiler.Op.SUBTRACTION, None),
+                          (compiler.Op.MULTIPLICATION, None),
+                          (compiler.Op.ADDITION, None),
+                          (compiler.Op.DUPLICATE, None),
+                          (compiler.Op.JUMP_IF_NEGATIVE, 'D'),
+                          (compiler.Op.JUMP_ALWAYS, 'C'),
+                          (compiler.Op.MARK_LOCATION, 'E'),
+                          (compiler.Op.SLIDE, 2),
+                          (compiler.Op.END_SUBROUTINE, None)))
+    interface = unittest.mock.Mock(spec_set=(
+        'read_number', 'read_character', 'output_number', 'output_character'))
+    executable_manager = ExecutableManager(
+        ('zero-Virtual-Machine-C', PORT), AUTHKEY.bytes)
+    executable_manager.connect()
+    stack_manager = StackManager(
+        ('zero-Virtual-Machine-B', PORT), AUTHKEY.bytes)
+    stack_manager.connect()
+    heap_manager = HeapManager(
+        ('zero-Virtual-Machine-A', PORT), AUTHKEY.bytes)
+    heap_manager.connect()
+    process = processor.Processor(
+        code, interface, executable_manager, stack_manager, heap_manager)
+    process.run()
 
 
 def run_user_terminal_client():

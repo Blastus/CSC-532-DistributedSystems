@@ -191,15 +191,41 @@ class Processor:
 
     The processor takes code and executes it in a virtual machine."""
 
-    def __init__(self, code, io):
+    def __init__(self, code, io, executable_manager=None, stack_manager=None,
+                 heap_manager=None):
         """Initialize the Processor with both Executable and IO instances."""
-        self.__exe, self.__io = Executable(code), io
+        self.__executable_manager = executable_manager
+        self.__stack_manager = stack_manager
+        self.__heap_manager = heap_manager
+        self.__exe, self.__io = self.__new_executable(code), io
+
+    def __new_executable(self, code):
+        """Create a new executable with respect to the executable manager."""
+        return (Executable(code)
+                if self.__executable_manager is None else
+                self.__executable_manager.Executable(code))
+
+    def __new_stack(self):
+        """Create a new stack with respect to the stack manager."""
+        return (Stack()
+                if self.__stack_manager is None else
+                self.__stack_manager.Stack())
+
+    def __new_heap(self):
+        """Create a new heap with respect to the heap manager."""
+        return (Heap()
+                if self.__heap_manager is None else
+                self.__heap_manager.Heap())
 
     def run(self):
         """Execute the stored program while utilizing the given interface."""
         # Create all needed runtime variables.
-        stack, heap, io, index, call, executable = \
-            Stack(), Heap(), self.__io, 0, collections.deque(), self.__exe
+        stack, heap, io, index, call, executable = (self.__new_stack(),
+                                                    self.__new_heap(),
+                                                    self.__io,
+                                                    0,
+                                                    collections.deque(),
+                                                    self.__exe)
         # Create method shortcuts to improve lookup time.
         (stack_pop, stack_push,
          heap_retrieve, heap_store,
