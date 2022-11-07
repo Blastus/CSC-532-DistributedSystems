@@ -12,14 +12,24 @@ to produce helpful warning messages for the initiator of code execution."""
 import datetime
 import logging
 import multiprocessing
+import multiprocessing.managers
 import socket
+import uuid
+
+import processor
 
 # Public Names
 __all__ = (
+    'LOGGER',
+    'PORT',
+    'AUTHKEY',
     'main',
     'run_heap_server',
+    'HeapManager',
     'run_stack_server',
+    'StackManager',
     'run_executable_server',
+    'ExecutableManager',
     'run_processor_client_server',
     'run_user_terminal_client',
     'DISPATCH_TABLE'
@@ -30,6 +40,11 @@ __version__ = 1, 0, 0
 __date__ = datetime.date(2022, 11, 6)
 __author__ = 'Stephen Paul Chappell'
 __credits__ = 'CSC-532'
+
+# Symbolic Constants
+LOGGER = logging.Logger('default')
+PORT = 46656
+AUTHKEY = uuid.UUID('cebee708-7986-4c06-8640-c7bcd4e9c1d6')
 
 
 def main():
@@ -48,16 +63,46 @@ def main():
 def run_heap_server():
     """Create a managed server for a distributed heap."""
     LOGGER.info('Starting the heap server ...')
+    manager = HeapManager(('', PORT), AUTHKEY.bytes)
+    server = manager.get_server()
+    server.serve_forever()
+
+
+class HeapManager(multiprocessing.managers.BaseManager):
+    """Allows the creation of managed, distributed heaps."""
+
+
+HeapManager.register('Heap', processor.Heap)
 
 
 def run_stack_server():
     """Create a managed server for a distributed stack."""
     LOGGER.info('Starting the stack server ...')
+    manager = StackManager(('', PORT), AUTHKEY.bytes)
+    server = manager.get_server()
+    server.serve_forever()
+
+
+class StackManager(multiprocessing.managers.BaseManager):
+    """Allows the creation of managed, distributed stacks."""
+
+
+StackManager.register('Stack', processor.Stack)
 
 
 def run_executable_server():
     """Create a managed server for a distributed executable."""
     LOGGER.info('Starting the executable server ...')
+    manager = ExecutableManager(('', PORT), AUTHKEY.bytes)
+    server = manager.get_server()
+    server.serve_forever()
+
+
+class ExecutableManager(multiprocessing.managers.BaseManager):
+    """Allows the creation of managed, distributed executables."""
+
+
+ExecutableManager.register('Executable', processor.Executable)
 
 
 def run_processor_client_server():
@@ -70,8 +115,7 @@ def run_user_terminal_client():
     LOGGER.info('Starting the user terminal client ...')
 
 
-# Symbolic Constants
-LOGGER = logging.Logger('default')
+# Another Symbolic Constant
 DISPATCH_TABLE = {
     'zero-Virtual-Machine-A': run_heap_server,
     'zero-Virtual-Machine-B': run_stack_server,
@@ -79,7 +123,6 @@ DISPATCH_TABLE = {
     'zero-Virtual-Machine-D': run_processor_client_server,
     'zero-Virtual-Machine-E': run_user_terminal_client
 }
-
 
 if __name__ == '__main__':
     main()
