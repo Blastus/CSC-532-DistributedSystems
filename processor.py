@@ -85,8 +85,6 @@ if USE_META_DEBUG:
     class MetaDebug(type):
         """Helps with seeing method calls on an instance of a class."""
 
-        NULL = object()
-
         def __new__(mcs, name, bases, class_dict):
             """Allocates space for a new class after wrapping callables."""
             for key, value in class_dict.items():
@@ -97,47 +95,45 @@ if USE_META_DEBUG:
         @classmethod
         def __wrap(mcs, name, key, value):
             """Creates a new method that displays the call and results."""
+            identifier = f'{name!s}.{key!s}'
 
             @functools.wraps(value)
             def wrapper(self, *args, **kwargs):
-                result = None
                 try:
                     result = value(self, *args, **kwargs)
                 except BaseException as error:
-                    result = error
+                    mcs.echo(identifier, args, kwargs, error, True)
                     raise
-                finally:
-                    mcs.echo(name, key, args, kwargs, result)
-                return result
+                else:
+                    mcs.echo(identifier, args, kwargs, result)
+                    return result
 
             return wrapper
 
         @classmethod
-        def echo(mcs, prefix, name, args, kwargs, result=NULL):
+        def echo(mcs, identifier, args, kwargs, result, error=False):
             """Displays debugging information for functions and methods."""
-            if result is mcs.NULL:
-                prefix, name, args, kwargs, result = \
-                    prefix.__module__, prefix.__name__, name, args, kwargs
             args = ', '.join(map(repr, args))
             kwargs = ', '.join(f'{k!s}={v!r}' for k, v in kwargs.items())
             parameters = ', '.join(filter(None, (args, kwargs)))
-            print(f'{prefix!s}.{name!s}({parameters!s}) -> {result!r}')
+            print(f'{identifier!s}({parameters!s}) '
+                  f'{"raise" if error else "return"} {result!r}')
 
 
     def debug(function):
         """Creates a new function that displays the call and results."""
+        identifier = f'{function.__module__!s}.{function.__name__!s}'
 
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
-            result = None
             try:
                 result = function(*args, **kwargs)
             except BaseException as error:
-                result = error
+                MetaDebug.echo(identifier, args, kwargs, error, True)
                 raise
-            finally:
-                MetaDebug.echo(function, args, kwargs, result)
-            return result
+            else:
+                MetaDebug.echo(identifier, args, kwargs, result)
+                return result
 
         return wrapper
 else:
@@ -181,8 +177,8 @@ class Executable(tuple, metaclass=MetaDebug):
             else:
                 yield operation, argument
 
-    # Executable.get_item is a synonym for tuple[].
-    get_item = tuple.__getitem__
+    # Executable.fetch is a synonym for tuple[].
+    fetch = tuple.__getitem__
 
 
 class Stack(collections.deque, metaclass=MetaDebug):
@@ -416,7 +412,7 @@ class Processor:
         # Enter virtual machine code processing loop.
         try:
             while True:
-                operation, argument = executable.get_item(index)
+                operation, argument = executable.fetch(index)
                 index += 1
                 handlers[operation](argument)
         except SystemExit:
