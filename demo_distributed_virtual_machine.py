@@ -104,7 +104,8 @@ class ExecutableManager(multiprocessing.managers.BaseManager):
     """Allows the creation of managed, distributed executables."""
 
 
-ExecutableManager.register('Executable', processor.Executable)
+ExecutableManager.register(
+    'Executable', processor.Executable, None, ['__getitem__'])
 
 
 def run_processor_client_server():
