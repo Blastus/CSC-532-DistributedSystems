@@ -169,6 +169,9 @@ class Executable(tuple, metaclass=MetaDebug):
             else:
                 yield operation, argument
 
+    # Executable.get_item is a synonym for tuple[].
+    get_item = tuple.__getitem__
+
 
 class Stack(collections.deque, metaclass=MetaDebug):
     """Stack() -> Stack instance
@@ -401,7 +404,7 @@ class Processor:
         # Enter virtual machine code processing loop.
         try:
             while True:
-                operation, argument = executable[index]
+                operation, argument = executable.get_item(index)
                 index += 1
                 handlers[operation](argument)
         except SystemExit:
