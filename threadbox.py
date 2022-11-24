@@ -1,89 +1,102 @@
 #! /usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Provide a way to run instance methods on a single thread.
 
 This module allows hierarchical classes to be cloned so that their instances
 run on one thread. Method calls are automatically routed through a special
 execution engine. This is helpful when building thread-safe GUI code."""
 
-__author__ = 'Stephen "Zero" Chappell <Noctis.Skytower@gmail.com>'
-__date__ = '9 October 2012'
-__version__ = 1, 0, 1
-
-################################################################################
-
 import abc
+import datetime
 import functools
+
 import affinity
 
-################################################################################
+# Public Names
+__all__ = (
+    'MetaBox',
+)
 
-class _object: __slots__ = '_MetaBox__exec', '__dict__'
+# Module Documentation
+__version__ = 2, 0, 0
+__date__ = datetime.date(2022, 11, 23)
+__author__ = 'Stephen Paul Chappell'
+__credits__ = 'CSC-532'
 
-################################################################################
+
+class _Object:
+    __slots__ = '_MetaBox__exec', '__dict__'
+
+
+# Symbolic Constants
+_META_BOX_REGISTRY = {object: _Object}
+_META_BOX_SENTINEL = object()
+
 
 class MetaBox(abc.ABCMeta):
-
-    "MetaBox(name, bases, classdict, old=None) -> MetaBox instance"
-
-    __REGISTRY = {object: _object}
-    __SENTINEL = object()
+    """MetaBox(name, bases, namespace, old=None) -> MetaBox instance"""
 
     @classmethod
-    def clone(cls, old, update=()):
-        "Creates a class preferring thread affinity after update."
-        classdict = dict(old.__dict__)
-        classdict.update(update)
-        return cls(old.__name__, old.__bases__, classdict, old)
+    def clone(mcs, old, new=None):
+        """Creates a class preferring thread affinity after update."""
+        return mcs(old.__name__, old.__bases__, vars(old) | (new or {}), old)
 
     @classmethod
-    def thread(cls, func):
-        "Marks a function to be completely threaded when running."
-        func.__thread = cls.__SENTINEL
+    def thread(mcs, func):
+        """Marks a function to be completely threaded when running."""
+        func.__thread = _META_BOX_SENTINEL
         return func
 
-    def __new__(cls, name, bases, classdict, old=None):
-        "Allocates space for a new class after altering its data."
-        assert '__new__' not in classdict, '__new__ must not be defined!'
-        assert '__slots__' not in classdict, '__slots__ must not be defined!'
-        assert '__module__' in classdict, '__module__ must be defined!'
+    def __new__(mcs, name, bases, namespace, old=None):
+        """Allocates space for a new class after altering its data."""
+        for test in _deny('__new__'), _deny('__slots__'), _need('__module__'):
+            test(namespace)
         valid = []
         for base in bases:
-            if base in cls.__REGISTRY:
-                valid.append(cls.__REGISTRY[base])
-            elif base in cls.__REGISTRY.values():
+            if base in _META_BOX_REGISTRY:
+                valid.append(_META_BOX_REGISTRY[base])
+            elif base in _META_BOX_REGISTRY.values():
                 valid.append(base)
             else:
-                valid.append(cls.clone(base))
-        for key, value in classdict.items():
-            if callable(value) and (not hasattr(value, '_MetaBox__thread') or
-                                    value.__thread is not cls.__SENTINEL):
-                classdict[key] = cls.__wrap(value)
-        classdict.update({'__new__': cls.__new, '__slots__': (), '__module__':
-                          '{}.{}'.format(__name__, classdict['__module__'])})
-        cls.__REGISTRY[object() if old is None else old] = new = \
-            super().__new__(cls, name, tuple(valid), classdict)
+                valid.append(mcs.clone(base))
+        for key, value in namespace.items():
+            if callable(value):
+                flag = getattr(value, '_MetaBox__thread', None)
+                if flag is not _META_BOX_SENTINEL:
+                    namespace[key] = mcs.__wrap(value)
+        namespace.update({
+            '__new__': mcs.__new,
+            '__slots__': (),
+            '__module__': f'{__name__}.{namespace["__module__"]}'
+        })
+        new = super().__new__(mcs, name, tuple(valid), namespace)
+        # noinspection PyTypeChecker
+        _META_BOX_REGISTRY[object() if old is None else old] = new
         return new
 
-    def __init__(self, name, bases, classdict, old=None):
-        "Initializes class instance while ignoring the old class."
-        return super().__init__(name, bases, classdict)
+    # noinspection PyUnusedLocal
+    def __init__(cls, name, bases, namespace, old=None):
+        """Initializes class instance while ignoring the old class."""
+        super().__init__(name, bases, namespace)
 
     @staticmethod
     def __wrap(func):
-        "Wraps a method so execution runs via an affinity engine."
+        """Wraps a method so execution runs via an affinity engine."""
+
         @functools.wraps(func)
         def box(self, *args, **kwargs):
             return self.__exec(func, self, *args, **kwargs)
+
         return box
 
     @classmethod
-    def __new(meta, cls, *args, **kwargs):
-        "Allocates space for instance and finds __exec attribute."
+    def __new(mcs, cls, *args, **kwargs):
+        """Allocates space for instance and finds __exec attribute."""
         self = object.__new__(cls)
         if 'master' in kwargs:
             self.__exec = kwargs['master'].__exec
         else:
-            valid = tuple(meta.__REGISTRY.values())
+            valid = tuple(_META_BOX_REGISTRY.values())
             for value in args:
                 if isinstance(value, valid):
                     self.__exec = value.__exec
@@ -91,3 +104,23 @@ class MetaBox(abc.ABCMeta):
             else:
                 self.__exec = affinity.Affinity()
         return self
+
+
+def _need(name):
+    """Creates a test that states the need for a name in a dictionary."""
+
+    def test(dictionary):
+        if name not in dictionary:
+            raise RuntimeError(f'{name} must be defined')
+
+    return test
+
+
+def _deny(name):
+    """Creates a test that states a name must not be in a dictionary."""
+
+    def test(dictionary):
+        if name in dictionary:
+            raise RuntimeError(f'{name} must not be defined')
+
+    return test
