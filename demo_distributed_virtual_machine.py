@@ -14,6 +14,7 @@ import logging
 import multiprocessing
 import multiprocessing.managers
 import socket
+import threading
 import uuid
 
 import compiler
@@ -173,11 +174,12 @@ def run_processor_client_server():
 def run_user_terminal_client():
     """Create a managed client for a distributed user terminal."""
     LOGGER.info('Starting the user terminal client ...')
-    root = demo_virtual_machine_gui.Example.get_root()
+    root = demo_virtual_machine_gui.Example()
     VirtualMachineGUI.set_master(root)
     manager = InterfaceManager(('', PORT), AUTHKEY.bytes)
     server = manager.get_server()
-    server.serve_forever()
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    root.mainloop()
 
 
 class VirtualMachineGUI(demo_virtual_machine_gui.TkinterIO):
