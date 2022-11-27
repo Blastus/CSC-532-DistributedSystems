@@ -96,8 +96,8 @@ class TerminalInterface(metaclass=abc.ABCMeta):
         """Print the given character."""
         return self.__check(self._putwch(self.__check(character)))
 
-    @staticmethod
-    def __check(unicode_char):
+    # noinspection PyMethodMayBeStatic
+    def __check(self, unicode_char):
         """Verify that the given character has the correct type and length."""
         if not isinstance(unicode_char, str):
             raise TypeError('unicode_char must be a str instance')
@@ -127,10 +127,10 @@ class TerminalInterface(metaclass=abc.ABCMeta):
 class ProcessorInterface(TerminalInterface):
     """ProcessorInterface() -> ProcessorInterface instance"""
 
+    # noinspection PyMissingConstructor
     @abc.abstractmethod
     def __init__(self):
         """Initialize the ProcessorInterface to track its EOF status."""
-        super().__init__()
         self.__streaming = True
 
     @threadbox.MetaBox.thread
