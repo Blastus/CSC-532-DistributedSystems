@@ -26,6 +26,7 @@ __all__ = (
     'LOGGER',
     'PORT',
     'AUTHKEY',
+    'INTERFACE_INSTANCE',
     'main',
     'run_heap_server',
     'HeapManager',
@@ -50,6 +51,7 @@ __credits__ = 'CSC-532'
 LOGGER = logging.Logger('default')
 PORT = 46656
 AUTHKEY = uuid.UUID('cebee708-7986-4c06-8640-c7bcd4e9c1d6')
+INTERFACE_INSTANCE = None
 
 
 def main():
@@ -165,7 +167,7 @@ def run_processor_client_server():
         ('zero-Virtual-Machine-A', PORT), AUTHKEY.bytes)
     heap_manager.connect()
     # noinspection PyUnresolvedReferences
-    interface = interface_manager.VirtualMachineGUI()
+    interface = interface_manager.get_interface()
     process = processor.Processor(
         code, interface, executable_manager, stack_manager, heap_manager)
     process.run()
@@ -173,9 +175,11 @@ def run_processor_client_server():
 
 def run_user_terminal_client():
     """Create a managed client for a distributed user terminal."""
+    global INTERFACE_INSTANCE
     LOGGER.info('Starting the user terminal client ...')
     root = demo_virtual_machine_gui.Example()
     VirtualMachineGUI.set_master(root)
+    INTERFACE_INSTANCE = VirtualMachineGUI()
     manager = InterfaceManager(('', PORT), AUTHKEY.bytes)
     server = manager.get_server()
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -208,7 +212,7 @@ class InterfaceManager(multiprocessing.managers.BaseManager):
     """Allows the creation of managed, distributed GUI terminals."""
 
 
-InterfaceManager.register('VirtualMachineGUI', VirtualMachineGUI)
+InterfaceManager.register('get_interface', lambda: INTERFACE_INSTANCE)
 
 
 # Another Symbolic Constant
