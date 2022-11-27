@@ -163,7 +163,7 @@ class Executable(tuple, metaclass=MetaDebug):
         for operation, argument in instructions:
             if operation == compiler.Op.MARK_LOCATION:
                 if argument in marker:
-                    raise ValueError('{!r} is duplicated!'.format(argument))
+                    raise ValueError(f'{argument!r} is duplicated!')
                 marker[argument] = offset
             else:
                 action.append((operation, argument))
@@ -173,7 +173,7 @@ class Executable(tuple, metaclass=MetaDebug):
                 try:
                     yield operation, marker[argument]
                 except KeyError:
-                    raise ValueError('{!r} is unavailable!'.format(argument))
+                    raise ValueError(f'{argument!r} is unavailable!')
             else:
                 yield operation, argument
 
