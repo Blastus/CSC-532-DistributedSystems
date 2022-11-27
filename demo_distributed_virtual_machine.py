@@ -14,10 +14,10 @@ import logging
 import multiprocessing
 import multiprocessing.managers
 import socket
-import unittest.mock
 import uuid
 
 import compiler
+import demo_virtual_machine_gui
 import processor
 
 # Public Names
@@ -34,6 +34,8 @@ __all__ = (
     'ExecutableManager',
     'run_processor_client_server',
     'run_user_terminal_client',
+    'VirtualMachineGUI',
+    'InterfaceManager',
     'DISPATCH_TABLE'
 )
 
@@ -149,8 +151,9 @@ def run_processor_client_server():
                           (compiler.Op.MARK_LOCATION, 'E'),
                           (compiler.Op.SLIDE, 2),
                           (compiler.Op.END_SUBROUTINE, None)))
-    interface = unittest.mock.Mock(spec_set=(
-        'read_number', 'read_character', 'output_number', 'output_character'))
+    interface_manager = InterfaceManager(
+        ('zero-Virtual-Machine-E', PORT), AUTHKEY.bytes)
+    interface_manager.connect()
     executable_manager = ExecutableManager(
         ('zero-Virtual-Machine-C', PORT), AUTHKEY.bytes)
     executable_manager.connect()
@@ -160,6 +163,8 @@ def run_processor_client_server():
     heap_manager = HeapManager(
         ('zero-Virtual-Machine-A', PORT), AUTHKEY.bytes)
     heap_manager.connect()
+    # noinspection PyUnresolvedReferences
+    interface = interface_manager.VirtualMachineGUI()
     process = processor.Processor(
         code, interface, executable_manager, stack_manager, heap_manager)
     process.run()
@@ -168,6 +173,38 @@ def run_processor_client_server():
 def run_user_terminal_client():
     """Create a managed client for a distributed user terminal."""
     LOGGER.info('Starting the user terminal client ...')
+    root = demo_virtual_machine_gui.Example.get_root()
+    VirtualMachineGUI.set_master(root)
+    manager = InterfaceManager(('', PORT), AUTHKEY.bytes)
+    server = manager.get_server()
+    server.serve_forever()
+
+
+class VirtualMachineGUI(demo_virtual_machine_gui.TkinterIO):
+    """Handles displaying a GUI terminal to the user."""
+
+    __master = None
+
+    @classmethod
+    def set_master(cls, master):
+        """Arrange for class instances to have an automatic master widget."""
+        if not isinstance(master, demo_virtual_machine_gui.Example):
+            raise TypeError('master must be an instance of Example')
+        cls.__master = master
+
+    def __init__(self):
+        """Initialize the widget and arrange for automatically showing up."""
+        master = self.__master
+        if master is None:
+            raise RuntimeError('master should be set before instantiation')
+        super().__init__(master)
+
+
+class InterfaceManager(multiprocessing.managers.BaseManager):
+    """Allows the creation of managed, distributed GUI terminals."""
+
+
+InterfaceManager.register('VirtualMachineGUI', VirtualMachineGUI)
 
 
 # Another Symbolic Constant
