@@ -31,10 +31,10 @@ __credits__ = 'CSC-532'
 
 def main():
     canonical_code = compiler.Code((
-        (1, None), (2, None), (3, None), (4, None), (5, None), (6, None),
-        (7, None), (8, None), (9, None), (10, None), (11, None), (12, 'A'),
-        (13, None), (14, 'B'), (15, None), (16, 'C'), (17, 'D'), (18, 'E'),
-        (19, 0), (20, 1), (21, None), (22, None), (23, None), (24, -2)))
+        (1, None),  (2, None), (3, None),  (4, None),  (5, None),  (6, None),
+        (7, None),  (8, None), (9, None),  (10, None), (11, None), (12, 'A'),
+        (13, None), (14, 'B'), (15, None), (16, 'C'),  (17, 'D'),  (18, 'E'),
+        (19, 0),    (20, 1),   (21, None), (22, None), (23, None), (24, -2)))
     # noinspection SpellCheckingInspection
     source = '''
      get
