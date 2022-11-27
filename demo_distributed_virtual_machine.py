@@ -212,7 +212,12 @@ class InterfaceManager(multiprocessing.managers.BaseManager):
     """Allows the creation of managed, distributed GUI terminals."""
 
 
-InterfaceManager.register('get_interface', lambda: INTERFACE_INSTANCE)
+InterfaceManager.register(
+    'get_interface',
+    lambda: INTERFACE_INSTANCE,
+    None,
+    ('read_number', 'read_character', 'output_number', 'output_character')
+)
 
 
 # Another Symbolic Constant
