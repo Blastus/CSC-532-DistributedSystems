@@ -35,8 +35,7 @@ __all__ = (
     'run_executable_server',
     'ExecutableManager',
     'run_processor_client_server',
-    'run_user_terminal_client',
-    'VirtualMachineGUI',
+    'run_user_terminal_server',
     'InterfaceManager',
     'DISPATCH_TABLE'
 )
@@ -173,39 +172,16 @@ def run_processor_client_server():
     process.run()
 
 
-def run_user_terminal_client():
-    """Create a managed client for a distributed user terminal."""
+def run_user_terminal_server():
+    """Create a managed server for a distributed user terminal."""
     global INTERFACE_INSTANCE
-    LOGGER.info('Starting the user terminal client ...')
+    LOGGER.info('Starting the user terminal server ...')
     root = demo_virtual_machine_gui.Example()
-    VirtualMachineGUI.set_master(root)
-    INTERFACE_INSTANCE = VirtualMachineGUI()
+    INTERFACE_INSTANCE = demo_virtual_machine_gui.TkinterIO(root)
     manager = InterfaceManager(('', PORT), AUTHKEY.bytes)
     server = manager.get_server()
     threading.Thread(target=server.serve_forever, daemon=True).start()
     root.mainloop()
-
-
-class VirtualMachineGUI(demo_virtual_machine_gui.TkinterIO):
-    """Handles displaying a GUI terminal to the user."""
-
-    __master = None
-
-    @classmethod
-    def set_master(cls, master):
-        """Arrange for class instances to have an automatic master widget."""
-        print(f'{cls.__name__} setting master to {master} ...')
-        if not isinstance(master, demo_virtual_machine_gui.Example):
-            raise TypeError('master must be an instance of Example')
-        cls.__master = master
-
-    def __init__(self):
-        """Initialize the widget and arrange for automatically showing up."""
-        print(f'Creating new {type(self).__name__} instance ...')
-        master = self.__master
-        if master is None:
-            raise RuntimeError('master should be set before instantiation')
-        super().__init__(master)
 
 
 class InterfaceManager(multiprocessing.managers.BaseManager):
@@ -226,7 +202,7 @@ DISPATCH_TABLE = {
     'zero-Virtual-Machine-B': run_stack_server,
     'zero-Virtual-Machine-C': run_executable_server,
     'zero-Virtual-Machine-D': run_processor_client_server,
-    'zero-Virtual-Machine-E': run_user_terminal_client
+    'zero-Virtual-Machine-E': run_user_terminal_server
 }
 
 if __name__ == '__main__':
