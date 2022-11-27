@@ -24,6 +24,7 @@ __credits__ = 'CSC-532'
 
 
 def main():
+    """Tests the decompiler to verify that it works as expected."""
     source = ''.join(('\t\t\t',
                       '\t\t ',
                       '\t\n\t\t',
