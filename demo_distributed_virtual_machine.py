@@ -13,13 +13,16 @@ import datetime
 import logging
 import multiprocessing
 import multiprocessing.managers
+import pathlib
 import socket
+import sys
 import threading
 import uuid
 
 import compiler
 import demo_virtual_machine_gui
 import processor
+import safe_tkinter
 
 # Public Names
 __all__ = (
@@ -34,7 +37,7 @@ __all__ = (
     'StackManager',
     'run_executable_server',
     'ExecutableManager',
-    'run_processor_client_server',
+    'run_processor_client',
     'run_user_terminal_server',
     'InterfaceManager',
     'DISPATCH_TABLE'
@@ -111,48 +114,24 @@ class ExecutableManager(multiprocessing.managers.BaseManager):
 ExecutableManager.register('Executable', processor.Executable)
 
 
-def run_processor_client_server():
-    """Create a managed client & server for a distributed processor."""
+def run_processor_client():
+    """Create a managed client for a distributed processor."""
     LOGGER.info('Starting the processor client & server ...')
-    # The following is just test code to get a processor to connect
-    # to distributed systems -- the heap, stack, and executable.
-    code = compiler.Code(((compiler.Op.PUSH, 1),
-                          (compiler.Op.PUSH, 2),
-                          (compiler.Op.PUSH, 3),
-                          (compiler.Op.DUPLICATE, None),
-                          (compiler.Op.COPY, 3),
-                          (compiler.Op.COPY, 3),
-                          (compiler.Op.COPY, 2),
-                          (compiler.Op.PUSH, 0),
-                          (compiler.Op.DUPLICATE, None),
-                          (compiler.Op.COPY, 4),
-                          (compiler.Op.CALL_SUBROUTINE, 'A'),
-                          (compiler.Op.JUMP_ALWAYS, 'B'),
-                          (compiler.Op.MARK_LOCATION, 'D'),
-                          (compiler.Op.ADDITION, None),
-                          (compiler.Op.JUMP_IF_ZERO, 'E'),
-                          (compiler.Op.MARK_LOCATION, 'C'),
-                          (compiler.Op.JUMP_ALWAYS, 'C'),
-                          (compiler.Op.MARK_LOCATION, 'B'),
-                          (compiler.Op.DISCARD, None),
-                          (compiler.Op.END_PROGRAM, None),
-                          (compiler.Op.MARK_LOCATION, 'A'),
-                          (compiler.Op.STORE, None),
-                          (compiler.Op.RETRIEVE, None),
-                          (compiler.Op.COPY, 1),
-                          (compiler.Op.COPY, 3),
-                          (compiler.Op.MODULO, None),
-                          (compiler.Op.INTEGER_DIVISION, None),
-                          (compiler.Op.SWAP, None),
-                          (compiler.Op.SUBTRACTION, None),
-                          (compiler.Op.MULTIPLICATION, None),
-                          (compiler.Op.ADDITION, None),
-                          (compiler.Op.DUPLICATE, None),
-                          (compiler.Op.JUMP_IF_NEGATIVE, 'D'),
-                          (compiler.Op.JUMP_ALWAYS, 'C'),
-                          (compiler.Op.MARK_LOCATION, 'E'),
-                          (compiler.Op.SLIDE, 2),
-                          (compiler.Op.END_SUBROUTINE, None)))
+    # Get the code to run on the processor.
+    root = demo_virtual_machine_gui.Example.get_root()
+    path = pathlib.Path(safe_tkinter.Open(
+        root,
+        filetypes=(('Program Files', '.ws'),
+                   ('All Files', '*')),
+        initialdir=pathlib.PurePath(sys.argv[0]).parent,
+        parent=root,
+        title='Please select a program to run.'
+    ).show())
+    with path.open() as file:
+        source = file.read()
+    my_compiler = compiler.Compiler(compiler.Prototype.SYMBOLS)
+    code = my_compiler.compile(source)
+    # Make network connections to the VM's distributed components.
     interface_manager = InterfaceManager(
         ('zero-Virtual-Machine-E', PORT), AUTHKEY.bytes)
     interface_manager.connect()
@@ -201,7 +180,7 @@ DISPATCH_TABLE = {
     'zero-Virtual-Machine-A': run_heap_server,
     'zero-Virtual-Machine-B': run_stack_server,
     'zero-Virtual-Machine-C': run_executable_server,
-    'zero-Virtual-Machine-D': run_processor_client_server,
+    'zero-Virtual-Machine-D': run_processor_client,
     'zero-Virtual-Machine-E': run_user_terminal_server
 }
 
