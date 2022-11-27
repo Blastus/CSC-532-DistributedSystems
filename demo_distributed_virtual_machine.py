@@ -188,12 +188,14 @@ class VirtualMachineGUI(demo_virtual_machine_gui.TkinterIO):
     @classmethod
     def set_master(cls, master):
         """Arrange for class instances to have an automatic master widget."""
+        print(f'{cls.__name__} setting master to {master} ...')
         if not isinstance(master, demo_virtual_machine_gui.Example):
             raise TypeError('master must be an instance of Example')
         cls.__master = master
 
     def __init__(self):
         """Initialize the widget and arrange for automatically showing up."""
+        print(f'Creating new {type(self).__name__} instance ...')
         master = self.__master
         if master is None:
             raise RuntimeError('master should be set before instantiation')
