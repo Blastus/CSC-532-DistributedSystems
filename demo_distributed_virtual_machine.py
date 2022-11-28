@@ -16,7 +16,6 @@ import multiprocessing.managers
 import pathlib
 import socket
 import sys
-import threading
 import uuid
 
 import compiler
@@ -38,6 +37,8 @@ __all__ = (
     'run_executable_server',
     'ExecutableManager',
     'run_processor_client',
+    'create_client_connections',
+    'get_interface_and_path_to_ws_program',
     'run_user_terminal_server',
     'InterfaceManager',
     'DISPATCH_TABLE'
@@ -117,8 +118,54 @@ ExecutableManager.register('Executable', processor.Executable)
 def run_processor_client():
     """Create a managed client for a distributed processor."""
     LOGGER.info('Starting the processor client & server ...')
-    # Get the code to run on the processor.
+    servers = create_client_connections()
+    io, path = get_interface_and_path_to_ws_program()
+    try:
+        with path.open() as file:
+            source = file.read()
+    except OSError:
+        io.handle_error()
+    else:
+        my_compiler = compiler.Compiler(compiler.Prototype.SYMBOLS)
+        try:
+            code = my_compiler.compile(source)
+        except ValueError:
+            io.handle_error()
+        else:
+            cpu = processor.Processor(
+                code,
+                io,
+                servers[ExecutableManager],
+                servers[StackManager],
+                servers[HeapManager]
+            )
+            try:
+                cpu.run()
+            except (EOFError, KeyboardInterrupt):
+                io.handle_error()
+
+
+def create_client_connections():
+    """Connect the processor to the other nodes of the virtual machine."""
+    servers = {
+        'zero-Virtual-Machine-A': HeapManager,
+        'zero-Virtual-Machine-B': StackManager,
+        'zero-Virtual-Machine-C': ExecutableManager,
+        'zero-Virtual-Machine-E': InterfaceManager
+    }
+    for key, value in servers.items():
+        manager = value((key, PORT), AUTHKEY.bytes)
+        manager.connect()
+        servers[value] = manager
+    return servers
+
+
+def get_interface_and_path_to_ws_program():
+    """Handles the GUI responsibilities of the processor client."""
     root = demo_virtual_machine_gui.Example.get_root()
+    root.withdraw()
+    # noinspection PyUnresolvedReferences
+    io = servers[InterfaceManager].get_interface()
     path = pathlib.Path(safe_tkinter.Open(
         root,
         filetypes=(('Program Files', '.ws'),
@@ -127,28 +174,7 @@ def run_processor_client():
         parent=root,
         title='Please select a program to run.'
     ).show())
-    with path.open() as file:
-        source = file.read()
-    my_compiler = compiler.Compiler(compiler.Prototype.SYMBOLS)
-    code = my_compiler.compile(source)
-    # Make network connections to the VM's distributed components.
-    interface_manager = InterfaceManager(
-        ('zero-Virtual-Machine-E', PORT), AUTHKEY.bytes)
-    interface_manager.connect()
-    executable_manager = ExecutableManager(
-        ('zero-Virtual-Machine-C', PORT), AUTHKEY.bytes)
-    executable_manager.connect()
-    stack_manager = StackManager(
-        ('zero-Virtual-Machine-B', PORT), AUTHKEY.bytes)
-    stack_manager.connect()
-    heap_manager = HeapManager(
-        ('zero-Virtual-Machine-A', PORT), AUTHKEY.bytes)
-    heap_manager.connect()
-    # noinspection PyUnresolvedReferences
-    interface = interface_manager.get_interface()
-    process = processor.Processor(
-        code, interface, executable_manager, stack_manager, heap_manager)
-    process.run()
+    return io, path
 
 
 def run_user_terminal_server():
@@ -170,7 +196,8 @@ InterfaceManager.register(
     'get_interface',
     lambda: INTERFACE_INSTANCE,
     None,
-    ('read_number', 'read_character', 'output_number', 'output_character')
+    ('read_number', 'read_character', 'output_number', 'output_character',
+     'handle_error')
 )
 
 
