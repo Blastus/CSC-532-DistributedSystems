@@ -124,13 +124,13 @@ def run_processor_client():
         with path.open() as file:
             source = file.read()
     except OSError:
-        io.handle_error()
+        io.handle_error(sys.exc_info())
     else:
         my_compiler = compiler.Compiler(compiler.Prototype.SYMBOLS)
         try:
             code = my_compiler.compile(source)
         except ValueError:
-            io.handle_error()
+            io.handle_error(sys.exc_info())
         else:
             cpu = processor.Processor(
                 code,
@@ -142,7 +142,7 @@ def run_processor_client():
             try:
                 cpu.run()
             except (EOFError, KeyboardInterrupt):
-                io.handle_error()
+                io.handle_error(sys.exc_info())
 
 
 def create_client_connections():
