@@ -155,12 +155,11 @@ def run_user_terminal_server():
     """Create a managed server for a distributed user terminal."""
     global INTERFACE_INSTANCE
     LOGGER.info('Starting the user terminal server ...')
-    root = demo_virtual_machine_gui.Example()
+    root = demo_virtual_machine_gui.Example.get_root()
     INTERFACE_INSTANCE = demo_virtual_machine_gui.TkinterIO(root)
     manager = InterfaceManager(('', PORT), AUTHKEY.bytes)
     server = manager.get_server()
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    root.mainloop()
+    server.serve_forever()
 
 
 class InterfaceManager(multiprocessing.managers.BaseManager):
