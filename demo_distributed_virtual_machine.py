@@ -119,7 +119,7 @@ def run_processor_client():
     """Create a managed client for a distributed processor."""
     LOGGER.info('Starting the processor client & server ...')
     servers = create_client_connections()
-    io, path = get_interface_and_path_to_ws_program()
+    io, path = get_interface_and_path_to_ws_program(servers)
     try:
         with path.open() as file:
             source = file.read()
@@ -160,7 +160,7 @@ def create_client_connections():
     return servers
 
 
-def get_interface_and_path_to_ws_program():
+def get_interface_and_path_to_ws_program(servers):
     """Handles the GUI responsibilities of the processor client."""
     root = demo_virtual_machine_gui.Example.get_root()
     root.withdraw()
