@@ -16,6 +16,7 @@ import multiprocessing.managers
 import pathlib
 import socket
 import sys
+import traceback
 import uuid
 
 import compiler
@@ -124,13 +125,13 @@ def run_processor_client():
         with path.open() as file:
             source = file.read()
     except OSError:
-        io.handle_error(sys.exc_info())
+        io.handle_error(traceback.format_exc())
     else:
         my_compiler = compiler.Compiler(compiler.Prototype.SYMBOLS)
         try:
             code = my_compiler.compile(source)
         except ValueError:
-            io.handle_error(sys.exc_info())
+            io.handle_error(traceback.format_exc())
         else:
             cpu = processor.Processor(
                 code,
@@ -142,7 +143,7 @@ def run_processor_client():
             try:
                 cpu.run()
             except (EOFError, KeyboardInterrupt):
-                io.handle_error(sys.exc_info())
+                io.handle_error(traceback.format_exc())
 
 
 def create_client_connections():

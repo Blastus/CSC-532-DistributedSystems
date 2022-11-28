@@ -110,13 +110,12 @@ class TkinterIO(interface.TkinterIO):
         self.grid(sticky=self.NSEW)
 
     @threadbox.MetaBox.thread
-    def handle_error(self, info=None):
+    def handle_error(self, message=None):
         """Displays exception information in the window based on context."""
+        if message is None:
+            message = traceback.format_exc()
         self.mark_set(self.INSERT, self.END)
         prefix = '' if self.line_begin else '\n'
-        message = (traceback.format_exc()
-                   if info is None else
-                   traceback.format_exception(*info))
         self.insert(self.INSERT, prefix + message, 'error')
 
 
