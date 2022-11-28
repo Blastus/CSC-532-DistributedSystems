@@ -153,10 +153,10 @@ def create_client_connections():
         'zero-Virtual-Machine-C': ExecutableManager,
         'zero-Virtual-Machine-E': InterfaceManager
     }
-    for key, value in servers.items():
-        manager = value((key, PORT), AUTHKEY.bytes)
+    for host, manager_class in servers.copy().items():
+        manager = manager_class((host, PORT), AUTHKEY.bytes)
         manager.connect()
-        servers[value] = manager
+        servers[manager_class] = manager
     return servers
 
 
